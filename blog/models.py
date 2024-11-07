@@ -41,9 +41,21 @@ class BlogTagIndexPage(Page):
 
 
 class BlogPage(Page):
-    date = models.DateField("Post date")
-    intro = models.CharField(max_length=250)
     body = RichTextField(blank=True)
+    date = models.DateField("Post date")
+    feed_image = models.ForeignKey(
+        "wagtailimages.Image",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    search_fields = Page.search_fields + [
+        index.SearchField("body"),
+        index.FilterField("date"),
+    ]
+
+    intro = models.CharField(max_length=250)
     authors = ParentalManyToManyField("blog.Author", blank=True)
     tags = ClusterTaggableManager(through=BlogPageTag, blank=True)
 
@@ -65,6 +77,11 @@ class BlogPage(Page):
                 FieldPanel("date"),
                 FieldPanel("authors", widget=forms.CheckboxSelectMultiple),
                 FieldPanel("tags"),
+                InlinePanel(
+                    "related_links",
+                    heading="Related links",
+                    label="Related link",
+                ),
             ],
             heading="Blog information",
         ),
@@ -72,6 +89,14 @@ class BlogPage(Page):
         FieldPanel("body"),
         InlinePanel("gallery_images", label="Gallery images"),
     ]
+
+    promote_panels = [
+        MultiFieldPanel(Page.promote_panels, "Common page configuration"),
+        FieldPanel("feed_image"),
+    ]
+
+    parent_page_types = ["blog.BlogIndexPage"]
+    subpage_types = []
 
 
 class BlogPageGalleryImage(Orderable):
@@ -110,3 +135,16 @@ class Author(models.Model):
 
     class Meta:
         verbose_name_plural = "Authors"
+
+
+class BlogPageRelatedLink(Orderable):
+    page = ParentalKey(
+        BlogPage, on_delete=models.CASCADE, related_name="related_links"
+    )
+    name = models.CharField(max_length=255)
+    url = models.URLField()
+
+    panels = [
+        FieldPanel("name"),
+        FieldPanel("url"),
+    ]
